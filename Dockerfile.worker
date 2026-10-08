@@ -1,0 +1,12 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install numpy grpcio grpcio-tools pyyaml prometheus-client
+
+COPY neuralnet/ ./neuralnet/
+COPY data/ ./data/
+
+WORKDIR /app/neuralnet
+
+CMD ["python3", "worker.py"]

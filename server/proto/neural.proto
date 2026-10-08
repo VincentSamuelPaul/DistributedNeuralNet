@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package neural;
+
+option go_package = "./proto";
+
+service ParameterServer {
+  rpc SendGradients(GradientRequest) returns (WeightResponse);
+  rpc SendWeights(WeightRequest) returns (WeightResponse);
+  rpc InitializeWeights(WeightInit) returns (WeightResponse);
+  rpc GetInitialWeights(Empty) returns (WeightResponse);
+}
+
+message WeightInit {
+  repeated float values = 1;
+}
+
+message Empty {}
+
+message GradientRequest {
+  int32 worker_id = 1;
+  repeated int32 indices = 2;
+  repeated float values = 3;
+  int32 total_size = 4;
+}
+
+message WeightResponse {
+  repeated int32 indices = 5;
+  repeated float values = 6;
+  int32 total_size = 7;
+}
+
+message WeightRequest {
+  int32 worker_id = 1;
+  repeated float weights = 2;
+}

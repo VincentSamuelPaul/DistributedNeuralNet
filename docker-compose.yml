@@ -1,0 +1,145 @@
+services:
+  param-server:
+    image: distributed-server:latest
+    container_name: param-server
+    networks:
+      - distributed-net
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - model-data:/app/checkpoints
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  worker-0:
+    image: distributed-worker:latest
+    container_name: worker-0
+    networks:
+      - distributed-net
+    ports:
+      - "8000:8000"
+    environment:
+      - SERVER_ADDRESS=param-server:50051
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    command: ["python3", "worker.py", "0"]
+    depends_on:
+      param-server:
+        condition: service_healthy
+
+  worker-1:
+    image: distributed-worker:latest
+    container_name: worker-1
+    networks:
+      - distributed-net
+    ports:
+      - "8001:8001"
+    environment:
+      - SERVER_ADDRESS=param-server:50051
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    command: ["python3", "worker.py", "1"]
+    depends_on:
+      param-server:
+        condition: service_healthy
+
+  worker-2:
+    image: distributed-worker:latest
+    container_name: worker-2
+    networks:
+      - distributed-net
+    ports:
+      - "8002:8002"
+    environment:
+      - SERVER_ADDRESS=param-server:50051
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    command: ["python3", "worker.py", "2"]
+    depends_on:
+      param-server:
+        condition: service_healthy
+
+  worker-3:
+    image: distributed-worker:latest
+    container_name: worker-3
+    networks:
+      - distributed-net
+    ports:
+      - "8003:8003"
+    environment:
+      - SERVER_ADDRESS=param-server:50051
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    command: ["python3", "worker.py", "3"]
+    depends_on:
+      param-server:
+        condition: service_healthy
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-training
+    networks:
+      - distributed-net
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command: 
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana-training
+    networks:
+      - distributed-net
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_SERVER_ROOT_URL=https://grafana-distributedneuralnet.vincents.systems
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  inference:
+    build:
+      context: .
+      dockerfile: inference/Dockerfile
+    container_name: inference-server
+    networks:
+      - distributed-net
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    volumes:
+      - model-data:/app/checkpoints
+    environment:
+      - CHECKPOINT_PATH=/app/checkpoints/model.json
+    depends_on:
+      - param-server
+    restart: unless-stopped
+
+networks:
+  distributed-net:
+    driver: bridge
+
+volumes:
+  grafana-data:
+  model-data:
+  

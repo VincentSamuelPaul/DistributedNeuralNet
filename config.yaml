@@ -1,0 +1,20 @@
+server:
+  port: 50051
+  workers: 4
+  checkpoint_interval: 5
+  checkpoint_path: /app/checkpoints/model.json
+
+training:
+  epochs: 200
+  learning_rate: 0.01
+  batch_size: 256
+  architecture: [784, 256, 128, 64, 10]
+  n_workers: 4
+  k_percent: 0.2
+
+data:
+  train_images: /app/data/train-images-idx3-ubyte.gz
+  train_labels: /app/data/train-labels-idx1-ubyte.gz
+  test_images: /app/data/t10k-images-idx3-ubyte.gz
+  test_labels: /app/data/t10k-labels-idx1-ubyte.gz
+

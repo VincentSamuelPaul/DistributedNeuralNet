@@ -1,0 +1,13 @@
+data/
+venv/
+learn/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+checkpoint/
+*.json
+.docker/
+.DS_Store
+Thumbs.db

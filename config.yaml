@@ -5,12 +5,12 @@ server:
   checkpoint_path: /app/checkpoints/model.json
 
 training:
-  epochs: 200
+  epochs: 2000
   learning_rate: 0.01
   batch_size: 256
   architecture: [784, 256, 128, 64, 10]
   n_workers: 4
-  k_percent: 0.2
+  k_percent: 0.3
 
 data:
   train_images: /app/data/train-images-idx3-ubyte.gz

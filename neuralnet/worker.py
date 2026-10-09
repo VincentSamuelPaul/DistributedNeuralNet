@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import time
 import os
+import json
 import neural_pb2
 import neural_pb2_grpc
 from mnist import load_mnist
@@ -25,6 +26,7 @@ TRAIN_IMAGES_PATH = cfg["data"]["train_images"]
 TRAIN_LABELS_PATH = cfg["data"]["train_labels"]
 TEST_IMAGES_PATH = cfg["data"]["test_images"]
 TEST_LABELS_PATH = cfg["data"]["test_labels"]
+CHECKPOINT_PATH = cfg["server"]["checkpoint_path"]
 
 METRICS_PORT = 8000 + WORKER_ID
 start_metrics_server(METRICS_PORT)
@@ -64,6 +66,13 @@ stub = neural_pb2_grpc.ParameterServerStub(channel)
 neural_network = Network(ARCHITECTURE)
 total_size = len(neural_network.get_weights())
 
+if os.path.exists(CHECKPOINT_PATH):
+    with open(CHECKPOINT_PATH) as f:
+        ckpt = json.load(f)
+    if "weights" in ckpt:
+        neural_network.set_weights(ckpt["weights"])
+        print(f"Worker {WORKER_ID} resumed from checkpoint", flush=True)
+
 if WORKER_ID == 0:
   initial_weights = neural_network.get_weights()
   stub.InitializeWeights(neural_pb2.WeightInit(values=initial_weights))
@@ -80,14 +89,16 @@ else:
 
 for epoch in range(EPOCHS):
     start = time.time()
-    
+
+    current_lr = LEARNING_RATE * (0.5 ** (epoch // 100))
+
     for batch_start in range(0, len(train_data), BATCH_SIZE):
         batch = train_data[batch_start:batch_start + BATCH_SIZE]
         input_batch = np.array([x for x, _ in batch])
         labels_batch = [y for _, y in batch]
-        
+
         grads = neural_network.compute_gradients(input_batch, labels_batch)
-        
+
         indices, values = compress_gradients(np.array(grads), k_percent=K_PERCENT)
         response = send_gradients_with_retry(stub, neural_pb2.GradientRequest(
             worker_id=WORKER_ID,
@@ -100,14 +111,14 @@ for epoch in range(EPOCHS):
             list(response.values),
             response.total_size
         )
-        neural_network.apply_gradients(averaged.tolist(), LEARNING_RATE)
+        neural_network.apply_gradients(averaged.tolist(), current_lr)
 
     elapsed = time.time() - start
     correct = sum(
         1 for inputs, label in test_data
         if np.argmax(neural_network.forward(np.array(inputs))) == label
     )
-    print(f"Worker {WORKER_ID} Epoch {epoch}: accuracy={correct/len(test_data)*100:.2f}% time={elapsed:.1f}s", flush=True)
+    print(f"Worker {WORKER_ID} Epoch {epoch}: accuracy={correct/len(test_data)*100:.2f}% lr={current_lr:.5f} time={elapsed:.1f}s", flush=True)
 
     ACCURACY.labels(worker_id=WORKER_ID).set(correct/len(test_data)*100)
     EPOCH_TIME.labels(worker_id=WORKER_ID).set(elapsed)
